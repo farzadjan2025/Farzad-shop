@@ -8,7 +8,7 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-          name: farzad-db
+          name: farzad_db
           property: connectionString
 
     phpVersion: 8.2
