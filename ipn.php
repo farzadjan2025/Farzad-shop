@@ -46,13 +46,30 @@ try {
         die("❌ پیام موجود نیست.");
     }
 
-    // گرفتن اولین پیام و حذف آن
-    $message = array_shift($messages);
+    // پیدا کردن اولین پیام با used = false
+    $message = null;
+    foreach ($messages as &$item) {
+        if (isset($item['used']) && $item['used'] === false) {
+            $message = $item;
+            $item['used'] = true; // علامت‌گذاری به عنوان استفاده‌شده
+            break;
+        }
+    }
+
+    if (!$message) {
+        die("❌ پیام استفاده‌نشده‌ای باقی نمانده است.");
+    }
+
+    // ذخیره پیام استفاده‌شده در فایل
     file_put_contents($json_file, json_encode($messages, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    // به‌روزرسانی وضعیت سفارش
-    $stmt = $pdo->prepare("UPDATE orders SET status = 'paid' WHERE order_id = :order_id");
-    $stmt->execute(['order_id' => $order_id]);
+    // به‌روزرسانی وضعیت سفارش + ذخیره ایمیل و رمز تحویلی
+    $stmt = $pdo->prepare("UPDATE orders SET status = 'paid', email = :email, password = :password WHERE order_id = :order_id");
+    $stmt->execute([
+        'order_id' => $order_id,
+        'email' => $message['email'],
+        'password' => $message['password']
+    ]);
 
     // نمایش پیام محصول
     echo "✅ پرداخت تأیید شد<br>";
