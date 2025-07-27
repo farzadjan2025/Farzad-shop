@@ -1,0 +1,20 @@
+[
+  {
+    "email": "facebook1@mail.com",
+    "password": "pass1",
+    "used": false,
+    "price": 5
+  },
+  {
+    "email": "facebook2@mail.com",
+    "password": "pass2",
+    "used": false,
+    "price": 3
+  },
+  {
+    "email": "facebook3@mail.com",
+    "password": "pass3",
+    "used": false,
+    "price": 4
+  }
+]

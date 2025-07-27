@@ -1,0 +1,12 @@
+[
+  {
+    "message": "سفارش شما ثبت شد. لینک فالوورها: https://example.com/follow/abc123",
+    "used": false,
+    "price": 1.5
+  },
+  {
+    "message": "لینک جدید: https://example.com/follow/xyz456",
+    "used": false,
+    "price": 2
+  }
+]
