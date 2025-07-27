@@ -18,22 +18,14 @@ if (!$order || $order['status'] !== 'paid') {
     exit;
 }
 
-// خواندن اطلاعات محصول از فایل JSON
-$product_id = $order['product_id'];
-$json_file = "messages/" . basename($product_id) . ".json";
-
-if (file_exists($json_file)) {
-    $json_data = json_decode(file_get_contents($json_file), true);
-    if (is_array($json_data) && count($json_data) > 0) {
-        echo "<h2>🎉 خرید موفق بود!</h2>";
-        foreach ($json_data as $index => $item) {
-            echo "<p><strong>ایمیل:</strong> {$item['email']}<br>";
-            echo "<strong>رمز:</strong> {$item['password']}</p><hr>";
-        }
-    } else {
-        echo "❌ فایل محصول خالی است.";
-    }
-} else {
-    echo "❌ فایل محصول یافت نشد.";
+// بررسی وجود ایمیل و رمز
+if (!$order['email'] || !$order['password']) {
+    echo "❌ اطلاعات محصول برای این سفارش ثبت نشده است.";
+    exit;
 }
+
+// نمایش فقط ایمیل و رمز سفارش مربوطه
+echo "<h2>🎉 خرید موفق بود!</h2>";
+echo "<p><strong>ایمیل:</strong> " . htmlspecialchars($order['email']) . "<br>";
+echo "<strong>رمز:</strong> " . htmlspecialchars($order['password']) . "</p>";
 ?>
