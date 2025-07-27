@@ -41,9 +41,9 @@ $data = [
     "price_currency" => "USD",
     "order_id" => $order_id,
     "order_description" => "خرید محصول دیجیتالی: $product_id",
-    "ipn_callback_url" => "https://testjan.free.nf/ipn.php",  // دامنه خودتو بزار
-    "success_url" => "https://testjan.free.nf/success.php?order_id=$order_id",
-    "cancel_url" => "https://testjan.free.nf/cancel.php"
+    "ipn_callback_url" => "https://farzad-shop.onrender.com/ipn.php",  // دامنه خودتو بزار
+    "success_url" => "https://farzad-shop.onrender.com/success.php?order_id=$order_id",
+    "cancel_url" => "https://farzad-shop.onrender.com/cancel.php"
 ];
 
 $ch = curl_init("https://api.nowpayments.io/v1/invoice");
