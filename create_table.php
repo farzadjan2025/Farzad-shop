@@ -1,19 +1,18 @@
 <?php
 require 'db.php';
 
+$sql = "CREATE TABLE IF NOT EXISTS orders (
+    id SERIAL PRIMARY KEY,
+    order_id VARCHAR(255) NOT NULL,
+    product_id VARCHAR(255) NOT NULL,
+    price NUMERIC(10, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)";
+
 try {
-    $sql = "
-        CREATE TABLE IF NOT EXISTS orders (
-            id SERIAL PRIMARY KEY,
-            order_id VARCHAR(50) UNIQUE NOT NULL,
-            product_id VARCHAR(100) NOT NULL,
-            price NUMERIC(10, 2) NOT NULL,
-            status VARCHAR(20) DEFAULT 'pending',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    ";
     $pdo->exec($sql);
-    echo "✅ جدول orders ساخته شد.";
+    echo "✅ جدول orders با موفقیت ساخته شد.";
 } catch (PDOException $e) {
     echo "❌ خطا در ساخت جدول: " . $e->getMessage();
 }
