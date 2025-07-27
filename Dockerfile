@@ -1,14 +1,13 @@
-# از تصویر رسمی PHP با Apache استفاده کن
-FROM php:8.1-apache
+# استفاده از نسخه PHP مناسب
+FROM php:8.2-cli
 
-# فایل‌ها را به مسیر root آپاچی کپی کن
-COPY . /var/www/html/
+# نصب PostgreSQL driver (pdo_pgsql)
+RUN apt-get update && apt-get install -y libpq-dev \
+    && docker-php-ext-install pdo pdo_pgsql
 
-# دسترسی فایل‌ها را درست کن (اختیاری)
-RUN chown -R www-data:www-data /var/www/html
+# انتقال فایل‌های پروژه به داخل کانتینر
+COPY . /app
+WORKDIR /app
 
-# اگر نیاز به mod_rewrite داری (مثلاً برای .htaccess)
-RUN a2enmod rewrite
-
-# پورت سرور
-EXPOSE 80
+# اجرای سرور PHP داخلی
+CMD ["php", "-S", "0.0.0.0:10000", "-t", "."]
