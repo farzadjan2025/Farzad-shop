@@ -1,4 +1,5 @@
 <?php
+file_put_contents("ipn_log.txt", date("Y-m-d H:i:s") . " | RAW: " . file_get_contents("php://input") . "\n", FILE_APPEND);
 require 'db.php';
 
 $data = json_decode(file_get_contents("php://input"), true);
