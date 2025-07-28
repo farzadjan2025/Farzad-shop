@@ -3,8 +3,9 @@ require 'db.php';
 
 $order_id = $_GET['order_id'] ?? null;
 
-if (!$order_id) {
-    echo "❌ شناسه سفارش یافت نشد.";
+// بررسی صحت شناسه سفارش
+if (!$order_id || !preg_match('/^order_[a-zA-Z0-9]+$/', $order_id)) {
+    echo "❌ شناسه سفارش نامعتبر است.";
     exit;
 }
 
@@ -19,7 +20,7 @@ if (!$order || $order['status'] !== 'paid') {
 }
 
 // بررسی وجود ایمیل و رمز
-if (!$order['email'] || !$order['password']) {
+if (empty($order['email']) || empty($order['password'])) {
     echo "❌ اطلاعات محصول برای این سفارش ثبت نشده است.";
     exit;
 }
