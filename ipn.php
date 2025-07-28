@@ -4,7 +4,7 @@ require 'db.php';
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-// ✅ بررسی امنیتی IPN
+// بررسی امنیتی IPN
 $expected_security_code = 'Sug/qfzKLqbKx/SFWrlIMLzofCQ4kAqe';
 $received_code = $_SERVER['HTTP_X_NOWPAYMENTS_SIG'] ?? '';
 
@@ -13,16 +13,16 @@ if ($received_code !== $expected_security_code) {
     die("❌ دسترسی غیرمجاز.");
 }
 
-// بررسی صحت داده‌ها
+// بررسی داده‌ها
 if (!$data || !isset($data['payment_status']) || !isset($data['order_id'])) {
     http_response_code(400);
     die("❌ داده نامعتبر.");
 }
 
-$payment_status = strtolower($data['payment_status']);  // 👈 به حروف کوچک تبدیل کن
+$payment_status = strtolower($data['payment_status']);
 $order_id = $data['order_id'];
 
-// ✅ همه وضعیت‌های قابل قبول NowPayments
+// وضعیت‌های قابل قبول
 $acceptable_statuses = ['confirming', 'partially_paid', 'paid', 'confirmed'];
 
 if (!in_array($payment_status, $acceptable_statuses)) {
@@ -72,7 +72,7 @@ try {
 
     file_put_contents($json_file, json_encode($messages, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    // وضعیت را همیشه "paid" ذخیره کن (چه confirming یا confirmed باشد)
+    // 🚨 به‌روزرسانی سفارش در دیتابیس
     $stmt = $pdo->prepare("UPDATE orders SET status = 'paid', email = :email, password = :password WHERE order_id = :order_id");
     $stmt->execute([
         'order_id' => $order_id,
@@ -80,12 +80,16 @@ try {
         'password' => $message['password']
     ]);
 
+    // لاگ موفقیت
+    file_put_contents(__DIR__ . "/debug.txt", date("Y-m-d H:i:s") . " | ✅ سفارش $order_id به‌روزرسانی شد.\n", FILE_APPEND);
+
     echo "✅ پرداخت تأیید شد<br>";
     echo "<strong>ایمیل:</strong> " . htmlspecialchars($message['email']) . "<br>";
     echo "<strong>رمز:</strong> " . htmlspecialchars($message['password']) . "<br>";
 
 } catch (PDOException $e) {
     http_response_code(500);
+    file_put_contents(__DIR__ . "/debug.txt", date("Y-m-d H:i:s") . " | ❌ خطا: " . $e->getMessage() . "\n", FILE_APPEND);
     die("❌ خطا در پردازش: " . $e->getMessage());
 }
 ?>
