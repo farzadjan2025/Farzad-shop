@@ -1,6 +1,8 @@
 <?php
-file_put_contents("ipn_log.txt", date("Y-m-d H:i:s") . " | RAW: " . file_get_contents("php://input") . "\n", FILE_APPEND);
+file_put_contents(__DIR__ . "/ipn_log.txt", date("Y-m-d H:i:s") . " | RAW: " . file_get_contents("php://input") . "\n", FILE_APPEND);
 require 'db.php';
+
+// ادامه کد بدون تغییر...
 
 $data = json_decode(file_get_contents("php://input"), true);
 
