@@ -12,7 +12,7 @@ $stmt = $pdo->prepare("SELECT * FROM orders WHERE order_id = ?");
 $stmt->execute([$order_id]);
 $order = $stmt->fetch();
 
-if (!$order || $order['status'] !== 'paid') {
+if (!$order || !in_array($order['status'], ['paid', 'partially_paid'])) {
     echo "⏳ پرداخت هنوز نهایی نشده است. لطفاً چند لحظه دیگر دوباره امتحان کنید.";
     exit;
 }
