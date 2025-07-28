@@ -1,31 +1,35 @@
 <?php
-require 'db.php';
-
+// success.php
 $order_id = $_GET['order_id'] ?? '';
+
 if (!$order_id) {
-    exit("شناسه سفارش معتبر نیست.");
+    echo "Invalid order ID";
+    exit;
 }
 
-$stmt = $pdo->prepare("SELECT * FROM orders WHERE order_id = ?");
-$stmt->execute([$order_id]);
-$order = $stmt->fetch();
+$db = new SQLite3(__DIR__ . '/orders.db');
+$stmt = $db->prepare("SELECT * FROM orders WHERE order_id = :order_id");
+$stmt->bindValue(':order_id', $order_id, SQLITE3_TEXT);
+$result = $stmt->execute();
+$order = $result->fetchArray(SQLITE3_ASSOC);
 
 if (!$order) {
-    exit("سفارش پیدا نشد.");
+    echo "Order not found.";
+    exit;
 }
 
-// بررسی وضعیت معتبر
-$valid_statuses = ['paid', 'confirmed', 'confirming', 'partially_paid', 'finished'];
-if (!in_array(strtolower($order['status']), $valid_statuses)) {
-    exit("پرداخت هنوز کامل نشده است. وضعیت فعلی: " . htmlspecialchars($order['status']));
-}
+// وضعیت‌هایی که به عنوان موفقیت آمیز در نظر گرفته می‌شوند
+$success_statuses = ['paid', 'partially_paid', 'finished', 'confirming'];
 
-if (empty($order['email']) || empty($order['password'])) {
-    exit("پرداخت موفق بود ولی هنوز محصول آماده نشده است. لطفاً کمی بعد دوباره تلاش کنید.");
+if (in_array($order['payment_status'], $success_statuses)) {
+    echo "<h1>پرداخت شما دریافت شد.</h1>";
+    echo "<p>آی‌دی سفارش شما: <strong>{$order['order_id']}</strong></p>";
+    echo "<p>وضعیت پرداخت: <strong>{$order['payment_status']}</strong></p>";
+    echo "<p>لینک محصول:</p>";
+    echo "<a href='{$order['product_url']}'>دانلود محصول</a>";
+} else {
+    echo "<h1>در حال انتظار برای تایید پرداخت...</h1>";
+    echo "<p>وضعیت کنونی: <strong>{$order['payment_status']}</strong></p>";
+    echo "<p>لطفاً چند لحظه دیگر این صفحه را بازبینی کنید.</p>";
 }
-
-// نمایش پیام محصول
-echo "<h2>پرداخت موفق!</h2>";
-echo "<p><strong>ایمیل:</strong> {$order['email']}</p>";
-echo "<p><strong>رمز عبور:</strong> {$order['password']}</p>";
 ?>
