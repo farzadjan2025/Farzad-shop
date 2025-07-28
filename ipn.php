@@ -1,7 +1,8 @@
 <?php
 require_once 'log_helper.php'; // اضافه کردن فایل لاگ
 log_debug("🔔 اجرای IPN شروع شد"); // شروع لاگ‌گیری
-
+log_debug("📌 وضعیت پرداخت: " . ($data['payment_status'] ?? 'ندارد'));
+log_debug("🧾 order_id: " . ($data['order_id'] ?? 'ندارد'));
 require 'db.php';
 
 $rawData = file_get_contents('php://input');
