@@ -1,11 +1,8 @@
 <?php
-$file = '/tmp/ipn_debug.txt';
-if (!file_exists($file)) {
+$logFile = __DIR__ . '/ipn_debug.txt';
+if (file_exists($logFile)) {
+    echo "<pre>" . htmlspecialchars(file_get_contents($logFile)) . "</pre>";
+} else {
     echo "❌ فایل دیباگ وجود ندارد.";
-    exit;
 }
-
-echo "<pre>";
-readfile($file);
-echo "</pre>";
 ?>
