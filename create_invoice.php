@@ -1,78 +1,60 @@
 <?php
-require_once 'db.php'; // اتصال به دیتابیس
+require 'db.php';
 
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+$product_id = $_POST['product_id'] ?? '';
+if (!$product_id) exit('شناسه محصول نامعتبر است.');
 
-// ✅ کلید واقعی NowPayments که دادی
-$api_key = 'TAAF55T-8D24S1Q-HDPZD8T-RRW0T2K';
+$json_path = __DIR__ . "/messages/{$product_id}.json";
+if (!file_exists($json_path)) exit('فایل پیام وجود ندارد.');
 
-$product_id = $_GET['product_id'] ?? 'facebook_sale';
-
-if (isset($_GET['price'])) {
-    $price = floatval($_GET['price']);
-} else {
-    $json_file = "messages/" . basename($product_id) . ".json";
-    if (file_exists($json_file)) {
-        $json_data = json_decode(file_get_contents($json_file), true);
-
-        if ($json_data === null || !is_array($json_data) || count($json_data) === 0) {
-            echo "❌ فایل JSON خالی یا خراب است.";
-            exit;
-        }
-
-        $price = isset($json_data[0]['price']) ? floatval($json_data[0]['price']) : 1.0;
-    } else {
-        $price = 1.0;
+$messages = json_decode(file_get_contents($json_path), true);
+$first = null;
+foreach ($messages as $msg) {
+    if (!$msg['used']) {
+        $first = $msg;
+        break;
     }
 }
 
-$order_id = uniqid("order_");
+if (!$first) exit('پیام آزاد موجود نیست.');
 
-// ذخیره سفارش در دیتابیس
-try {
-    $stmt = $pdo->prepare("INSERT INTO orders (order_id, product_id, price, status) VALUES (?, ?, ?, 'pending')");
-    $stmt->execute([$order_id, $product_id, $price]);
-} catch (PDOException $e) {
-    echo "❌ خطا در ذخیره سفارش در دیتابیس: " . $e->getMessage();
-    exit;
-}
+$price = floatval($first['price']);
+$order_id = 'order_' . uniqid();
 
-// ساخت داده برای ساخت فاکتور
+$stmt = $pdo->prepare("INSERT INTO orders (order_id, product_id, price, status) VALUES (?, ?, ?, 'unpaid')");
+$stmt->execute([$order_id, $product_id, $price]);
+
+// ارسال به NowPayments
 $data = [
-    "price_amount" => $price,
-    "price_currency" => "USD",
-    "order_id" => $order_id,
-    "order_description" => "خرید محصول دیجیتالی: $product_id",
-    "ipn_callback_url" => "https://farzad-shop.onrender.com/ipn.php",  // ✅ آدرس فایل IPN
-    "success_url" => "https://farzad-shop.onrender.com/success.php?order_id=$order_id",
-    "cancel_url" => "https://farzad-shop.onrender.com/cancel.php"
+    'price_amount' => $price,
+    'price_currency' => 'usd',
+    'pay_currency' => 'usdttrc20', // قابل تنظیم
+    'order_id' => $order_id,
+    'order_description' => "خرید محصول دیجیتالی: $product_id",
+    'ipn_callback_url' => 'https://farzad-shop.onrender.com/ipn.php',
+    'success_url' => "https://farzad-shop.onrender.com/success.php?order_id=$order_id",
+    'cancel_url' => 'https://farzad-shop.onrender.com/cancel.php'
 ];
 
-// ارسال درخواست به NowPayments
-$ch = curl_init("https://api.nowpayments.io/v1/invoice");
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    "x-api-key: $api_key",
-    "Content-Type: application/json"
+$ch = curl_init('https://api.nowpayments.io/v1/invoice');
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER => [
+        'x-api-key: TAAF55T-8D24S1Q-HDPZD8T-RRW0T2K',
+        'Content-Type: application/json',
+        'X-Nowpayments-IPN-Signature: Sug/qfzKLqbKx/SFWrlIMLzofCQ4kAqe'
+    ],
+    CURLOPT_POSTFIELDS => json_encode($data)
 ]);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 
 $response = curl_exec($ch);
-$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
 
 $result = json_decode($response, true);
-
-// هدایت به فاکتور پرداخت
-if (isset($result['invoice_url'])) {
-    header("Location: " . $result['invoice_url']);
-    exit;
-} else {
-    echo "<h3>❌ خطا در دریافت لینک پرداخت:</h3>";
-    echo "<pre>HTTP Code: $httpcode\n";
-    print_r($result);
-    echo "</pre>";
+if (!isset($result['invoice_url'])) {
+    exit("خطا در ساخت فاکتور");
 }
+
+header("Location: " . $result['invoice_url']);
+exit;
 ?>
