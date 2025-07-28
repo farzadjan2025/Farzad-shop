@@ -1,101 +1,103 @@
 <?php
-// 🟡 مسیر لاگ جدید در /tmp
-$log_path = "/tmp/ipn_log.txt";
-file_put_contents($log_path, date("Y-m-d H:i:s") . " | RAW: " . file_get_contents("php://input") . "\n", FILE_APPEND);
-
 require 'db.php';
 
-$data = json_decode(file_get_contents("php://input"), true);
+$rawData = file_get_contents('php://input');
+file_put_contents('/tmp/ipn_log.txt', date('Y-m-d H:i:s') . " | RAW: $rawData\n", FILE_APPEND);
 
-// ✅ بررسی امنیتی IPN
-$expected_security_code = 'Sug/qfzKLqbKx/SFWrlIMLzofCQ4kAqe';
-$received_code = $_SERVER['HTTP_X_NOWPAYMENTS_SIG'] ?? '';
-
-if ($received_code !== $expected_security_code) {
-    http_response_code(403);
-    die("❌ دسترسی غیرمجاز.");
+// فایل جداگانه برای دیباگ مرحله به مرحله
+function log_debug($msg) {
+    file_put_contents('/tmp/ipn_debug.txt', date('Y-m-d H:i:s') . " | $msg\n", FILE_APPEND);
 }
 
-// بررسی صحت داده‌ها
-if (!$data || !isset($data['payment_status'], $data['order_id'], $data['actually_paid'])) {
+log_debug("🔔 IPN دریافت شد.");
+
+$data = json_decode($rawData, true);
+if (!$data || !isset($data['order_id'])) {
+    log_debug("❌ داده نامعتبر یا بدون order_id.");
     http_response_code(400);
-    die("❌ داده نامعتبر.");
+    exit("Invalid data");
 }
 
-$payment_status = strtolower($data['payment_status']);
 $order_id = $data['order_id'];
-$actually_paid = floatval($data['actually_paid']);  // مبلغ واقعی پرداخت‌شده
+$status = strtolower($data['payment_status'] ?? 'unknown');
 
-// وضعیت‌های قابل قبول
-$acceptable_statuses = ['confirming', 'partially_paid', 'paid', 'confirmed'];
+log_debug("📦 order_id دریافت شد: $order_id - وضعیت: $status");
 
-if (!in_array($payment_status, $acceptable_statuses)) {
+// فقط این وضعیت‌ها پذیرفته می‌شوند
+$acceptable_statuses = ['paid', 'confirmed', 'confirming', 'partially_paid', 'finished'];
+if (!in_array($status, $acceptable_statuses)) {
+    log_debug("⚠️ وضعیت $status قابل قبول نیست.");
     http_response_code(200);
-    die("⏳ وضعیت پرداخت هنوز قابل پردازش نیست.");
+    exit("Status not acceptable");
 }
 
-try {
-    // واکشی سفارش
-    $stmt = $pdo->prepare("SELECT * FROM orders WHERE order_id = :order_id LIMIT 1");
-    $stmt->execute(['order_id' => $order_id]);
-    $order = $stmt->fetch(PDO::FETCH_ASSOC);
+// پیدا کردن سفارش
+$stmt = $pdo->prepare("SELECT * FROM orders WHERE order_id = ?");
+$stmt->execute([$order_id]);
+$order = $stmt->fetch();
 
-    if (!$order) {
-        http_response_code(404);
-        die("❌ سفارش یافت نشد.");
-    }
+if (!$order) {
+    log_debug("❌ سفارش پیدا نشد.");
+    http_response_code(404);
+    exit("Order not found");
+}
 
-    if (in_array($order['status'], ['paid', 'confirmed'])) {
-        die("✅ این سفارش قبلاً پردازش شده است.");
-    }
+log_debug("✅ سفارش پیدا شد: ID={$order['id']}");
 
-    $product_id = $order['product_id'];
-    $json_file = __DIR__ . "/messages/{$product_id}.json";
+// بررسی اینکه قبلاً اطلاعات ایمیل/رمز ذخیره نشده
+if (!empty($order['email']) && !empty($order['password'])) {
+    log_debug("ℹ️ سفارش قبلاً پردازش شده. (ایمیل و رمز وجود دارد)");
+    http_response_code(200);
+    exit("Already processed");
+}
 
-    if (!file_exists($json_file)) {
-        die("❌ فایل محصول یافت نشد.");
-    }
-
-    $messages = json_decode(file_get_contents($json_file), true);
-
-    if (!is_array($messages) || empty($messages)) {
-        die("❌ پیام موجود نیست.");
-    }
-
-    $message = null;
-    foreach ($messages as &$item) {
-        if (!isset($item['used']) || $item['used'] !== false) continue;
-        if (!isset($item['price'])) continue;
-
-        // بررسی تطبیق قیمت با در نظر گرفتن کمی اختلاف (مثلاً 0.01)
-        if (abs($item['price'] - $actually_paid) <= 0.01) {
-            $message = $item;
-            $item['used'] = true;
-            break;
-        }
-    }
-
-    if (!$message) {
-        die("❌ هیچ محصولی با مبلغ پرداختی هماهنگ نیست.");
-    }
-
-    // ذخیره‌ی محصول مصرف‌شده
-    file_put_contents($json_file, json_encode($messages, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-
-    // ذخیره در دیتابیس
-    $stmt = $pdo->prepare("UPDATE orders SET status = :status, email = :email, password = :password WHERE order_id = :order_id");
-    $stmt->execute([
-        'order_id' => $order_id,
-        'email' => $message['email'],
-        'password' => $message['password'],
-        'status' => $payment_status
-    ]);
-
-    echo "✅ پرداخت تأیید شد<br>";
-    echo "<strong>ایمیل:</strong> " . htmlspecialchars($message['email']) . "<br>";
-    echo "<strong>رمز:</strong> " . htmlspecialchars($message['password']) . "<br>";
-
-} catch (PDOException $e) {
+// بررسی فایل پیام
+$product_id = $order['product_id'];
+$json_file = __DIR__ . "/messages/$product_id.json";
+if (!file_exists($json_file)) {
+    log_debug("❌ فایل پیام $product_id.json پیدا نشد.");
     http_response_code(500);
-    die("❌ خطا در پردازش: " . $e->getMessage());
+    exit("Product file not found");
 }
+
+log_debug("✅ فایل پیام $product_id.json پیدا شد.");
+
+// پیام‌ها را بخوان
+$messages = json_decode(file_get_contents($json_file), true);
+$found = false;
+foreach ($messages as &$msg) {
+    if (!$msg['used'] && floatval($msg['price']) <= floatval($order['price'])) {
+        $found = true;
+        $email = $msg['email'];
+        $password = $msg['password'];
+        $msg['used'] = true;
+        break;
+    }
+}
+
+if (!$found) {
+    log_debug("❌ هیچ پیام آزاد با قیمت مناسب پیدا نشد.");
+    http_response_code(500);
+    exit("No available message");
+}
+
+// ذخیره در جدول سفارش
+$update = $pdo->prepare("UPDATE orders SET status = ?, email = ?, password = ? WHERE order_id = ?");
+$success = $update->execute([$status, $email, $password, $order_id]);
+
+if ($success) {
+    log_debug("✅ سفارش بروزرسانی شد: status=$status, email=$email");
+} else {
+    $errorInfo = $update->errorInfo();
+    log_debug("❌ خطا در به‌روزرسانی سفارش: " . print_r($errorInfo, true));
+    http_response_code(500);
+    exit("Database update failed");
+}
+
+// ذخیره پیام‌ها با تغییر used
+file_put_contents($json_file, json_encode($messages, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+log_debug("✅ پیام علامت‌گذاری شد به عنوان used.");
+
+http_response_code(200);
+echo "✅ Success";
+?>
