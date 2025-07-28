@@ -1,5 +1,8 @@
 <?php
-file_put_contents(__DIR__ . "/ipn_log.txt", date("Y-m-d H:i:s") . " | RAW: " . file_get_contents("php://input") . "\n", FILE_APPEND);
+// 🟡 مسیر لاگ جدید در /tmp
+$log_path = "/tmp/ipn_log.txt";
+file_put_contents($log_path, date("Y-m-d H:i:s") . " | RAW: " . file_get_contents("php://input") . "\n", FILE_APPEND);
+
 require 'db.php';
 
 $data = json_decode(file_get_contents("php://input"), true);
@@ -42,7 +45,7 @@ try {
         die("❌ سفارش یافت نشد.");
     }
 
-    if ($order['status'] === 'paid') {
+    if (in_array($order['status'], ['paid', 'confirmed'])) {
         die("✅ این سفارش قبلاً پردازش شده است.");
     }
 
@@ -81,12 +84,12 @@ try {
 
     // ذخیره در دیتابیس
     $stmt = $pdo->prepare("UPDATE orders SET status = :status, email = :email, password = :password WHERE order_id = :order_id");
-$stmt->execute([
-    'order_id' => $order_id,
-    'email' => $message['email'],
-    'password' => $message['password'],
-    'status' => $payment_status
-]);
+    $stmt->execute([
+        'order_id' => $order_id,
+        'email' => $message['email'],
+        'password' => $message['password'],
+        'status' => $payment_status
+    ]);
 
     echo "✅ پرداخت تأیید شد<br>";
     echo "<strong>ایمیل:</strong> " . htmlspecialchars($message['email']) . "<br>";
