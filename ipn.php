@@ -2,9 +2,19 @@
 file_put_contents(__DIR__ . "/ipn_log.txt", date("Y-m-d H:i:s") . " | RAW: " . file_get_contents("php://input") . "\n", FILE_APPEND);
 require 'db.php';
 
-// ادامه کد بدون تغییر...
+// بررسی امنیتی IPN Secret
+$received_hmac = $_SERVER['HTTP_X_NOWPAYMENTS_SIG'] ?? '';
+$ipn_secret = 'Sug/qfzKLqbKx/SFWrlIMLzofCQ4kAqe'; // 👈 این همون IPN Security Code تو هست
 
-$data = json_decode(file_get_contents("php://input"), true);
+$body = file_get_contents("php://input");
+$calculated_hmac = hash_hmac('sha512', $body, trim($ipn_secret));
+
+if (!hash_equals($calculated_hmac, $received_hmac)) {
+    http_response_code(403);
+    die("❌ درخواست نامعتبر (هش تطابق ندارد).");
+}
+
+$data = json_decode($body, true);
 
 if (!$data || !isset($data['payment_status']) || !isset($data['order_id'])) {
     http_response_code(400);
@@ -31,7 +41,6 @@ try {
         die("❌ سفارش یافت نشد.");
     }
 
-    // اگر قبلاً پردازش شده بود، دوباره پیام نده
     if ($order['status'] === 'paid') {
         die("✅ این سفارش قبلاً پردازش شده است.");
     }
@@ -49,12 +58,11 @@ try {
         die("❌ پیام موجود نیست.");
     }
 
-    // پیدا کردن اولین پیام با used = false
     $message = null;
     foreach ($messages as &$item) {
         if (isset($item['used']) && $item['used'] === false) {
             $message = $item;
-            $item['used'] = true; // علامت‌گذاری به عنوان استفاده‌شده
+            $item['used'] = true;
             break;
         }
     }
@@ -63,10 +71,8 @@ try {
         die("❌ پیام استفاده‌نشده‌ای باقی نمانده است.");
     }
 
-    // ذخیره پیام استفاده‌شده در فایل
     file_put_contents($json_file, json_encode($messages, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    // به‌روزرسانی وضعیت سفارش + ذخیره ایمیل و رمز تحویلی
     $stmt = $pdo->prepare("UPDATE orders SET status = 'paid', email = :email, password = :password WHERE order_id = :order_id");
     $stmt->execute([
         'order_id' => $order_id,
@@ -74,7 +80,6 @@ try {
         'password' => $message['password']
     ]);
 
-    // نمایش پیام محصول
     echo "✅ پرداخت تأیید شد<br>";
     echo "<strong>ایمیل:</strong> " . htmlspecialchars($message['email']) . "<br>";
     echo "<strong>رمز:</strong> " . htmlspecialchars($message['password']) . "<br>";
