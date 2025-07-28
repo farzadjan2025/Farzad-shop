@@ -80,12 +80,13 @@ try {
     file_put_contents($json_file, json_encode($messages, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
     // ذخیره در دیتابیس
-    $stmt = $pdo->prepare("UPDATE orders SET status = 'paid', email = :email, password = :password WHERE order_id = :order_id");
-    $stmt->execute([
-        'order_id' => $order_id,
-        'email' => $message['email'],
-        'password' => $message['password']
-    ]);
+    $stmt = $pdo->prepare("UPDATE orders SET status = :status, email = :email, password = :password WHERE order_id = :order_id");
+$stmt->execute([
+    'order_id' => $order_id,
+    'email' => $message['email'],
+    'password' => $message['password'],
+    'status' => $payment_status
+]);
 
     echo "✅ پرداخت تأیید شد<br>";
     echo "<strong>ایمیل:</strong> " . htmlspecialchars($message['email']) . "<br>";
