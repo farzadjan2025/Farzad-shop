@@ -1,12 +1,11 @@
 <?php
-require_once 'db.php'; // اتصال به دیتابیس، همینجا بگذار
+require_once 'db.php'; // اتصال به دیتابیس
 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-require 'db.php'; // اتصال به دیتابیس
-
-$api_key = '3N86QHJ-31FMW8W-GYA57QV-DW9HHYV'; // کلید API NOWPayments
+// ✅ کلید واقعی NowPayments که دادی
+$api_key = 'TAAF55T-8D24S1Q-HDPZD8T-RRW0T2K';
 
 $product_id = $_GET['product_id'] ?? 'facebook_sale';
 
@@ -39,16 +38,18 @@ try {
     exit;
 }
 
+// ساخت داده برای ساخت فاکتور
 $data = [
     "price_amount" => $price,
     "price_currency" => "USD",
     "order_id" => $order_id,
     "order_description" => "خرید محصول دیجیتالی: $product_id",
-    "ipn_callback_url" => "https://farzad-shop.onrender.com/ipn.php",
-"success_url" => "https://farzad-shop.onrender.com/success.php?order_id=$order_id",
-"cancel_url" => "https://farzad-shop.onrender.com/cancel.php"
+    "ipn_callback_url" => "https://farzad-shop.onrender.com/ipn.php",  // ✅ آدرس فایل IPN
+    "success_url" => "https://farzad-shop.onrender.com/success.php?order_id=$order_id",
+    "cancel_url" => "https://farzad-shop.onrender.com/cancel.php"
 ];
 
+// ارسال درخواست به NowPayments
 $ch = curl_init("https://api.nowpayments.io/v1/invoice");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
@@ -64,6 +65,7 @@ curl_close($ch);
 
 $result = json_decode($response, true);
 
+// هدایت به فاکتور پرداخت
 if (isset($result['invoice_url'])) {
     header("Location: " . $result['invoice_url']);
     exit;
