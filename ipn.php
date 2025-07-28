@@ -2,11 +2,11 @@
 require 'db.php';
 
 $rawData = file_get_contents('php://input');
-file_put_contents('/tmp/ipn_log.txt', date('Y-m-d H:i:s') . " | RAW: $rawData\n", FILE_APPEND);
+file_put_contents(__DIR__ . '/ipn_log.txt', date('Y-m-d H:i:s') . " | RAW: $rawData\n", FILE_APPEND);
 
 // فایل جداگانه برای دیباگ مرحله به مرحله
 function log_debug($msg) {
-    file_put_contents('/tmp/ipn_debug.txt', date('Y-m-d H:i:s') . " | $msg\n", FILE_APPEND);
+    file_put_contents(__DIR__ . '/ipn_debug.txt', date('Y-m-d H:i:s') . " | $msg\n", FILE_APPEND);
 }
 
 log_debug("🔔 IPN دریافت شد.");
