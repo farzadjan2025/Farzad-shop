@@ -1,11 +1,9 @@
 <?php
 require 'db.php';
 
-$order_id = $_GET['order_id'] ?? null;
-
+$order_id = $_GET['order_id'] ?? '';
 if (!$order_id) {
-    echo "❌ شناسه سفارش یافت نشد.";
-    exit;
+    exit("شناسه سفارش معتبر نیست.");
 }
 
 $stmt = $pdo->prepare("SELECT * FROM orders WHERE order_id = ?");
@@ -13,24 +11,21 @@ $stmt->execute([$order_id]);
 $order = $stmt->fetch();
 
 if (!$order) {
-    echo "❌ سفارش یافت نشد.";
-    exit;
+    exit("سفارش پیدا نشد.");
 }
 
-// قبول وضعیت "paid" یا "confirming" یا "confirmed" یا "partially_paid"
-$allowed_statuses = ['paid', 'confirming', 'confirmed', 'partially_paid'];
-
-if (!in_array(strtolower($order['status']), $allowed_statuses)) {
-    echo "⏳ پرداخت هنوز نهایی نشده است. لطفاً چند لحظه دیگر دوباره امتحان کنید.";
-    exit;
+// بررسی وضعیت معتبر
+$valid_statuses = ['paid', 'confirmed', 'confirming', 'partially_paid', 'finished'];
+if (!in_array(strtolower($order['status']), $valid_statuses)) {
+    exit("پرداخت هنوز کامل نشده است. وضعیت فعلی: " . htmlspecialchars($order['status']));
 }
 
-if (!$order['email'] || !$order['password']) {
-    echo "❌ اطلاعات محصول ثبت نشده است.";
-    exit;
+if (empty($order['email']) || empty($order['password'])) {
+    exit("پرداخت موفق بود ولی هنوز محصول آماده نشده است. لطفاً کمی بعد دوباره تلاش کنید.");
 }
 
-echo "<h2>🎉 خرید موفق بود!</h2>";
-echo "<p><strong>ایمیل:</strong> " . htmlspecialchars($order['email']) . "<br>";
-echo "<strong>رمز:</strong> " . htmlspecialchars($order['password']) . "</p>";
+// نمایش پیام محصول
+echo "<h2>پرداخت موفق!</h2>";
+echo "<p><strong>ایمیل:</strong> {$order['email']}</p>";
+echo "<p><strong>رمز عبور:</strong> {$order['password']}</p>";
 ?>
