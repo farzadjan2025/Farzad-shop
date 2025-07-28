@@ -5,6 +5,21 @@ log_debug("🔔 اجرای IPN شروع شد"); // شروع لاگ‌گیری
 require 'db.php';
 
 $rawData = file_get_contents('php://input');
+// بررسی امنیتی IPN با HMAC
+$hmac_header = $_SERVER['HTTP_X_NOWPAYMENTS_SIG'] ?? '';
+$computed_hmac = hash_hmac("sha512", $rawData, 'Sug/qfzKLqbKx/SFWrlIMLzofCQ4kAqe');
+
+// ثبت HMACها در لاگ برای دیباگ دقیق
+log_debug("📥 HMAC دریافتی از Header: $hmac_header");
+log_debug("🧮 HMAC محاسبه‌شده: $computed_hmac");
+
+if ($hmac_header !== $computed_hmac) {
+    log_debug("❌ تطابق HMAC ناموفق بود. درخواست رد شد.");
+    http_response_code(403);
+    exit("HMAC mismatch");
+}
+
+log_debug("✅ HMAC بررسی و تأیید شد.");
 log_debug("📦 Raw POST Data", $raw_post_data); // لاگ خام دریافتی
 
 $data = json_decode($raw_post_data, true);
