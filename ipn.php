@@ -4,7 +4,7 @@ require 'db.php';
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-// ✅ بررسی امنیتی IPN
+// بررسی امنیتی IPN
 $expected_security_code = 'Sug/qfzKLqbKx/SFWrlIMLzofCQ4kAqe';
 $received_code = $_SERVER['HTTP_X_NOWPAYMENTS_SIG'] ?? '';
 
@@ -13,7 +13,6 @@ if ($received_code !== $expected_security_code) {
     die("❌ دسترسی غیرمجاز.");
 }
 
-// بررسی صحت داده‌ها
 if (!$data || !isset($data['payment_status']) || !isset($data['order_id'])) {
     http_response_code(400);
     die("❌ داده نامعتبر.");
@@ -22,9 +21,8 @@ if (!$data || !isset($data['payment_status']) || !isset($data['order_id'])) {
 $payment_status = $data['payment_status'];
 $order_id = $data['order_id'];
 
-// فقط اگر پرداخت در حال تأیید یا کامل باشد
+// فقط در صورت این وضعیت‌ها پردازش شود
 $acceptable_statuses = ['confirming', 'partially_paid', 'paid'];
-
 if (!in_array($payment_status, $acceptable_statuses)) {
     http_response_code(200);
     die("⏳ وضعیت پرداخت هنوز قابل پردازش نیست.");
@@ -40,7 +38,7 @@ try {
         die("❌ سفارش یافت نشد.");
     }
 
-    if ($order['status'] === 'paid') {
+    if (in_array($order['status'], ['paid', 'partially_paid'])) {
         die("✅ این سفارش قبلاً پردازش شده است.");
     }
 
@@ -52,7 +50,6 @@ try {
     }
 
     $messages = json_decode(file_get_contents($json_file), true);
-
     if (!is_array($messages) || empty($messages)) {
         die("❌ پیام موجود نیست.");
     }
@@ -72,10 +69,13 @@ try {
 
     file_put_contents($json_file, json_encode($messages, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 
-    $stmt = $pdo->prepare("UPDATE orders SET status = 'paid', email = :email, password = :password WHERE order_id = :order_id");
+    $status_to_save = in_array($payment_status, ['paid', 'partially_paid']) ? $payment_status : 'confirming';
+
+    $stmt = $pdo->prepare("UPDATE orders SET status = :status, email = :email, password = :password WHERE order_id = :order_id");
     $stmt->execute([
         'order_id' => $order_id,
-        'email' => $message['email'],
+        'status'   => $status_to_save,
+        'email'    => $message['email'],
         'password' => $message['password']
     ]);
 
