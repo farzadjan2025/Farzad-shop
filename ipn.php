@@ -1,7 +1,18 @@
 <?php
+require_once 'log_helper.php'; // اضافه کردن فایل لاگ
+log_debug("🔔 اجرای IPN شروع شد"); // شروع لاگ‌گیری
+
 require 'db.php';
 
 $rawData = file_get_contents('php://input');
+log_debug("📦 Raw POST Data", $raw_post_data); // لاگ خام دریافتی
+
+$data = json_decode($raw_post_data, true);
+if (json_last_error() !== JSON_ERROR_NONE) {
+    log_debug("❌ خطا در json_decode", json_last_error_msg());
+    exit('Invalid JSON');
+}
+log_debug("✅ JSON تبدیل‌شده", $data); // لاگ آرایه نهایی
 file_put_contents('/tmp/ipn_log.txt', date('Y-m-d H:i:s') . " | RAW: $rawData\n", FILE_APPEND);
 
 // فایل جداگانه برای دیباگ مرحله به مرحله
